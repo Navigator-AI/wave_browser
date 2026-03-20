@@ -348,7 +348,7 @@ export function WaveformCanvas({ signals, waveforms, width, height }: WaveformCa
           // === Draw Single-bit Signal ===
           ctx.lineWidth = 1;
 
-          waveform.changes.forEach((change, i) => {
+          waveform.changes.forEach((change) => {
             const x = timeToX(change.time);
             
             if (x < waveAreaStart) {
