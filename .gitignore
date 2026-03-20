@@ -1,0 +1,61 @@
+# Dependencies
+node_modules/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.Python
+pip-log.txt
+
+# Build outputs
+dist/
+build/
+*.egg-info/
+.vite/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+npiLog/
+
+# Test outputs
+coverage/
+.pytest_cache/
+.nyc_output/
+playwright-report/
+test-results/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Simulation outputs (example folder)
+example/sim/work/
+example/sim/work.lib++/
+example/sim/vericomLog/
+example/sim/*.fsdb
+example/sim/*.vpd
+example/sim/simv*
+example/sim/csrc/
+example/sim/AN.DB/
+example/sim/ucli.key
+
+# Backend runtime
+backend/logs/
+backend/npiLog/
+
+# Launcher runtime (if used)
+launcher/venv/
+launcher/npiLog/
