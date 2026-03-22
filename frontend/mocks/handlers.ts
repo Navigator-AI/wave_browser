@@ -285,6 +285,38 @@ export const handlers = [
       entries,
     });
   }),
+
+  // Get file content
+  http.get('/api/files/content', async ({ request }) => {
+    await delay(100);
+    const url = new URL(request.url);
+    const path = url.searchParams.get('path');
+    
+    if (!path) {
+      return HttpResponse.json(
+        { detail: 'Path parameter required' },
+        { status: 400 }
+      );
+    }
+    
+    // Import demo source files dynamically to avoid circular dependencies
+    const { DEMO_SOURCE_FILES } = await import('../src/demo/demoSourceCode');
+    
+    const file = DEMO_SOURCE_FILES[path];
+    if (!file) {
+      return HttpResponse.json(
+        { detail: `File not found: ${path}` },
+        { status: 404 }
+      );
+    }
+    
+    return HttpResponse.json({
+      path,
+      content: file.content,
+      language: file.language,
+      line_count: file.content.split('\n').length,
+    });
+  }),
 ];
 
 // Reset sessions to initial state (useful for tests)

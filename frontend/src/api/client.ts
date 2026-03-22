@@ -19,6 +19,7 @@ import type {
   ValueAtTimeResponse,
   FileEntry,
   FileListResponse,
+  FileContentResponse,
 } from './types';
 
 import { apiLogger } from '../utils/logging';
@@ -166,6 +167,9 @@ export const filesApi = {
   
   getRoots: () =>
     request<FileEntry[]>('/files/roots'),
+  
+  getContent: (path: string) =>
+    request<FileContentResponse>(`/files/content?path=${encodeURIComponent(path)}`),
 };
 
 export { ApiError };

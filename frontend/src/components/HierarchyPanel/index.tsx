@@ -6,7 +6,11 @@ import { HierarchyTree } from './HierarchyTree';
 import { SignalList } from './SignalList';
 import { useWaveformStore } from '../../store';
 
-export function HierarchyPanel() {
+interface HierarchyPanelProps {
+  onViewCode?: (path: string) => void;
+}
+
+export function HierarchyPanel({ onViewCode }: HierarchyPanelProps) {
   const { currentSession } = useWaveformStore();
 
   if (!currentSession) {
@@ -25,7 +29,7 @@ export function HierarchyPanel() {
           HIERARCHY
           <span className="text-wave-text/40 ml-2 font-normal">(double-click to add all signals)</span>
         </div>
-        <HierarchyTree sessionId={currentSession.id} />
+        <HierarchyTree sessionId={currentSession.id} onViewCode={onViewCode} />
       </div>
 
       {/* Signal list */}
@@ -34,7 +38,7 @@ export function HierarchyPanel() {
           SIGNALS
         </div>
         <div className="flex-1 overflow-hidden">
-          <SignalList sessionId={currentSession.id} />
+          <SignalList sessionId={currentSession.id} onViewCode={onViewCode} />
         </div>
       </div>
     </div>

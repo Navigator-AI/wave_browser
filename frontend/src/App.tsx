@@ -14,12 +14,13 @@ import { WaveformViewer } from './components/WaveformViewer';
 import { SessionDialog } from './components/SessionDialog';
 import { OpenDialog } from './components/OpenDialog';
 import { LogPanel, LogEntry } from './components/LogPanel';
+import { CodePanel } from './components/CodePanel';
 import { useWaveformStore } from './store';
 import { setBackendUrl, sessionsApi } from './api';
-import { useUrlParams, buildConnectionUrl, clearConnectionUrl } from './hooks/useUrlParams';
+import { useUrlParams, buildConnectionUrl, clearConnectionUrl, useCodePanel } from './hooks';
 
 // Version for debugging - update when making changes
-const APP_VERSION = 'v0.3.0-dev';
+const APP_VERSION = 'v0.4.0-dev';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -39,6 +40,7 @@ interface ServerConnection {
 function AppContent() {
   const { currentSession, isDemoMode, loadDemoMode, setCurrentSession } = useWaveformStore();
   const urlParams = useUrlParams();
+  const codePanel = useCodePanel();
   
   const [connection, setConnection] = useState<ServerConnection | null>(null);
   const [showOpenDialog, setShowOpenDialog] = useState(false);
@@ -265,12 +267,22 @@ function AppContent() {
         <div className="flex-1 flex overflow-hidden">
           {/* Left panel - Hierarchy */}
           <div className="w-80 border-r border-wave-border flex-shrink-0 overflow-hidden">
-            <HierarchyPanel />
+            <HierarchyPanel onViewCode={codePanel.viewCode} />
           </div>
 
-          {/* Right panel - Waveform Viewer */}
-          <div className="flex-1 overflow-hidden">
-            <WaveformViewer />
+          {/* Right panel - Waveform Viewer + Code Panel */}
+          <div className="flex-1 overflow-hidden flex flex-col">
+            <div className="flex-1 overflow-hidden">
+              <WaveformViewer />
+            </div>
+            {/* Code Panel (collapsible) */}
+            <CodePanel
+              location={codePanel.location}
+              content={codePanel.content}
+              isLoading={codePanel.isLoading}
+              error={codePanel.error}
+              onClose={codePanel.close}
+            />
           </div>
         </div>
 

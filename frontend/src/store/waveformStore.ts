@@ -21,6 +21,13 @@ export interface SignalGroup {
   signalPaths: string[];
 }
 
+// Code location type (for code panel)
+export interface CodeLocation {
+  filePath: string;
+  line: number;
+  label?: string;
+}
+
 interface WaveformState {
   // Session
   currentSession: SessionInfo | null;
@@ -70,6 +77,10 @@ interface WaveformState {
   removeSignalGroup: (id: string) => void;
   toggleGroupCollapsed: (id: string) => void;
   updateGroup: (id: string, updates: Partial<Omit<SignalGroup, 'id'>>) => void;
+  
+  // Code panel
+  codeLocation: CodeLocation | null;
+  setCodeLocation: (location: CodeLocation | null) => void;
 }
 
 export const useWaveformStore = create<WaveformState>((set) => ({
@@ -179,4 +190,8 @@ export const useWaveformStore = create<WaveformState>((set) => ({
   updateGroup: (id, updates) => set((state) => ({
     signalGroups: state.signalGroups.map(g => g.id === id ? { ...g, ...updates } : g),
   })),
+  
+  // Code panel
+  codeLocation: null,
+  setCodeLocation: (location) => set({ codeLocation: location }),
 }));

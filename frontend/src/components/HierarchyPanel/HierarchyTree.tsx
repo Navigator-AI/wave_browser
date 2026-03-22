@@ -17,9 +17,10 @@ interface ScopeNodeProps {
   level: number;
   isDemoMode: boolean;
   onDoubleClick: (scopePath: string) => void;
+  onViewCode?: (scopePath: string) => void;
 }
 
-function ScopeNode({ scope, sessionId, level, isDemoMode, onDoubleClick }: ScopeNodeProps) {
+function ScopeNode({ scope, sessionId, level, isDemoMode, onDoubleClick, onViewCode }: ScopeNodeProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const { selectedScope, setSelectedScope } = useWaveformStore();
   const isSelected = selectedScope === scope.path;
@@ -44,7 +45,8 @@ function ScopeNode({ scope, sessionId, level, isDemoMode, onDoubleClick }: Scope
 
   const handleSelect = useCallback(() => {
     setSelectedScope(scope.path);
-  }, [scope.path, setSelectedScope]);
+    onViewCode?.(scope.path);
+  }, [scope.path, setSelectedScope, onViewCode]);
 
   const handleDoubleClick = useCallback(() => {
     onDoubleClick(scope.path);
@@ -107,6 +109,7 @@ function ScopeNode({ scope, sessionId, level, isDemoMode, onDoubleClick }: Scope
                 level={level + 1}
                 isDemoMode={isDemoMode}
                 onDoubleClick={onDoubleClick}
+                onViewCode={onViewCode}
               />
             ))
           )}
@@ -118,9 +121,10 @@ function ScopeNode({ scope, sessionId, level, isDemoMode, onDoubleClick }: Scope
 
 interface HierarchyTreeProps {
   sessionId: string;
+  onViewCode?: (path: string) => void;
 }
 
-export function HierarchyTree({ sessionId }: HierarchyTreeProps) {
+export function HierarchyTree({ sessionId, onViewCode }: HierarchyTreeProps) {
   const { isDemoMode, addSignals } = useWaveformStore();
   
   const { data: topScopes, isLoading, error } = useQuery({
@@ -171,6 +175,7 @@ export function HierarchyTree({ sessionId }: HierarchyTreeProps) {
           level={0}
           isDemoMode={isDemoMode}
           onDoubleClick={handleScopeDoubleClick}
+          onViewCode={onViewCode}
         />
       ))}
     </div>

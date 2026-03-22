@@ -120,3 +120,71 @@ async def get_roots():
         roots.append(FileEntry(name="~", path=home, is_dir=True))
     
     return roots
+
+
+class FileContentResponse(BaseModel):
+    """File content response"""
+    path: str
+    content: str
+    language: str
+    line_count: int
+
+
+def detect_language(path: str) -> str:
+    """Detect language from file extension"""
+    ext = Path(path).suffix.lower()
+    lang_map = {
+        '.v': 'verilog',
+        '.vh': 'verilog',
+        '.sv': 'systemverilog',
+        '.svh': 'systemverilog',
+        '.vhd': 'vhdl',
+        '.vhdl': 'vhdl',
+        '.py': 'python',
+        '.tcl': 'tcl',
+        '.sdc': 'tcl',
+        '.txt': 'text',
+        '.log': 'text',
+    }
+    return lang_map.get(ext, 'text')
+
+
+@router.get("/content", response_model=FileContentResponse)
+async def get_file_content(path: str = Query(..., description="File path to read")):
+    """
+    Get the content of a file.
+    Returns the file content with detected language type.
+    """
+    target = Path(path)
+    
+    # Security: resolve to absolute path
+    try:
+        target = target.resolve()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid path")
+    
+    if not target.exists():
+        raise HTTPException(status_code=404, detail=f"File not found: {path}")
+    
+    if not target.is_file():
+        raise HTTPException(status_code=400, detail=f"Not a file: {path}")
+    
+    # Limit file size (10MB)
+    max_size = 10 * 1024 * 1024
+    file_size = target.stat().st_size
+    if file_size > max_size:
+        raise HTTPException(status_code=400, detail=f"File too large: {file_size} bytes (max {max_size})")
+    
+    try:
+        content = target.read_text(encoding='utf-8', errors='replace')
+    except PermissionError:
+        raise HTTPException(status_code=403, detail=f"Permission denied: {path}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to read file: {str(e)}")
+    
+    return FileContentResponse(
+        path=str(target),
+        content=content,
+        language=detect_language(str(target)),
+        line_count=content.count('\n') + 1,
+    )

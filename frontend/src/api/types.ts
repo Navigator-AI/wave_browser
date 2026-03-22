@@ -120,3 +120,10 @@ export interface FileListResponse {
   parent?: string;
   entries: FileEntry[];
 }
+
+export interface FileContentResponse {
+  path: string;
+  content: string;
+  language: string;
+  line_count: number;
+}

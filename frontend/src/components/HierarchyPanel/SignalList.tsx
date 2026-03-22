@@ -96,9 +96,10 @@ function SignalItem({ signal, isDisplayed, isSelected, onSelect }: SignalItemPro
 
 interface SignalListProps {
   sessionId: string;
+  onViewCode?: (signalPath: string) => void;
 }
 
-export function SignalList({ sessionId }: SignalListProps) {
+export function SignalList({ sessionId, onViewCode }: SignalListProps) {
   const { selectedScope, displayedSignals, addSignals, isDemoMode } = useWaveformStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
@@ -174,13 +175,15 @@ export function SignalList({ sessionId }: SignalListProps) {
         // Regular click: single select
         newSelected.clear();
         newSelected.add(signal.path);
+        // Trigger code view for single selection
+        onViewCode?.(signal.path);
       }
       
       return newSelected;
     });
     
     setLastSelectedIndex(signalIndex);
-  }, [filteredSignals, lastSelectedIndex]);
+  }, [filteredSignals, lastSelectedIndex, onViewCode]);
 
   // Handle add to wave
   const handleAddToWave = useCallback(() => {
