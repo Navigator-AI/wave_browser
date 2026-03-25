@@ -11,14 +11,14 @@ class Settings(BaseSettings):
     
     # Server settings
     host: str = "0.0.0.0"
-    port: int = 8000
+    port: int = 8800
     debug: bool = False
     
     # CORS settings
     cors_origins: List[str] = [
-        "http://localhost:5173",
+        "http://localhost:5317",
         "http://localhost:3000",
-        "http://127.0.0.1:5173",
+        "http://127.0.0.1:5317",
     ]
     
     # Logging settings

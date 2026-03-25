@@ -1,0 +1,14 @@
+[Unit]
+Description=Wave Browser Frontend - it.cyou tunnel
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/projects/yaswanth/wave_browser/frontend
+ExecStart=/usr/local/bin/itcyou 5317 -s waveformviewerweb -t itc_afa1960e581c4ad9262ed8b902da6785
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
