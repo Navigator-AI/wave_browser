@@ -127,3 +127,14 @@ export interface FileContentResponse {
   language: string;
   line_count: number;
 }
+
+// File Upload
+export interface FileUploadItem {
+  original_name: string;
+  path: string;
+  size: number;
+}
+
+export interface FileUploadResponse {
+  files: FileUploadItem[];
+}

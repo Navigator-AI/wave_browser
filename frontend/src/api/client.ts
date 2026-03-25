@@ -20,6 +20,7 @@ import type {
   FileEntry,
   FileListResponse,
   FileContentResponse,
+  FileUploadResponse,
 } from './types';
 
 import { apiLogger } from '../utils/logging';
@@ -170,6 +171,29 @@ export const filesApi = {
   
   getContent: (path: string) =>
     request<FileContentResponse>(`/files/content?path=${encodeURIComponent(path)}`),
+
+  upload: async (files: FileList | File[]) => {
+    const fileArr = Array.from(files);
+    const formData = new FormData();
+    for (const f of fileArr) {
+      formData.append('files', f);
+    }
+
+    const url = `${currentBackendUrl}/api/files/upload`;
+    try {
+      const response = await fetch(url, { method: 'POST', body: formData });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
+        const errorMessage = error.detail || 'Upload failed';
+        throw new ApiError(response.status, errorMessage, error);
+      }
+      return (await response.json()) as FileUploadResponse;
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      const message = error instanceof Error ? error.message : 'Network error';
+      throw new ApiError(0, `Network error: ${message}`);
+    }
+  },
 };
 
 export { ApiError };

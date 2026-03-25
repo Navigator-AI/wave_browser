@@ -716,7 +716,12 @@ class VerdiAdapter(BaseAdapter):
 # Factory function to get the right adapter
 def get_adapter(vendor: str = "verdi") -> BaseAdapter:
     """Factory function to create a vendor-specific adapter."""
-    if vendor.lower() == "verdi":
+    v = (vendor or "").lower()
+    if v == "verdi":
         return VerdiAdapter()
-    else:
-        raise ValueError(f"Unsupported vendor: {vendor}")
+    if v == "vcd":
+        # Import lazily to avoid loading parsing code unless requested.
+        from .vcd_adapter import VcdAdapter
+
+        return VcdAdapter()
+    raise ValueError(f"Unsupported vendor: {vendor}")

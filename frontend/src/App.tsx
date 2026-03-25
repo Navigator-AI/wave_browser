@@ -101,8 +101,9 @@ function AppContent() {
     addLog('info', `Opening database: ${fsdbPath}`);
 
     try {
+      const v = fsdbPath.toLowerCase().endsWith('.vcd') ? 'vcd' : 'verdi';
       const response = await sessionsApi.create({
-        vendor: 'verdi',
+        vendor: v,
         wave_db: fsdbPath,
       });
       

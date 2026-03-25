@@ -6,11 +6,19 @@ Allows browsing files on the backend machine.
 import os
 from pathlib import Path
 from typing import Optional, List
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, UploadFile, File
 from pydantic import BaseModel
+from uuid import uuid4
 
 
 router = APIRouter()
+
+# Directory where uploaded files are stored on the backend machine
+UPLOAD_DIR = Path(__file__).resolve().parents[2] / "uploads"
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+# Safety: limit upload size (bytes)
+MAX_UPLOAD_BYTES = 200 * 1024 * 1024  # 200MB
 
 
 class FileEntry(BaseModel):
@@ -130,6 +138,18 @@ class FileContentResponse(BaseModel):
     line_count: int
 
 
+class FileUploadItem(BaseModel):
+    """Single uploaded file result."""
+    original_name: str
+    path: str
+    size: int
+
+
+class FileUploadResponse(BaseModel):
+    """Upload response payload."""
+    files: List[FileUploadItem]
+
+
 def detect_language(path: str) -> str:
     """Detect language from file extension"""
     ext = Path(path).suffix.lower()
@@ -188,3 +208,68 @@ async def get_file_content(path: str = Query(..., description="File path to read
         language=detect_language(str(target)),
         line_count=content.count('\n') + 1,
     )
+
+
+def _safe_filename(filename: str) -> str:
+    # Strip any directory components, keep only the base name
+    return Path(filename).name if filename else "upload"
+
+
+async def _save_upload_file(upload: UploadFile, destination: Path) -> int:
+    """
+    Save an UploadFile to `destination` with size tracking.
+    Returns the number of bytes written.
+    """
+    size = 0
+    chunk_size = 1024 * 1024  # 1MB
+    destination.parent.mkdir(parents=True, exist_ok=True)
+
+    with destination.open("wb") as f:
+        while True:
+            chunk = await upload.read(chunk_size)
+            if not chunk:
+                break
+            size += len(chunk)
+            if size > MAX_UPLOAD_BYTES:
+                raise HTTPException(
+                    status_code=413,
+                    detail=f"File too large (max {MAX_UPLOAD_BYTES} bytes)",
+                )
+            f.write(chunk)
+    return size
+
+
+@router.post("/upload", response_model=FileUploadResponse)
+async def upload_files(files: List[UploadFile] = File(...)):
+    """
+    Upload one or more files to the backend machine.
+
+    The returned `path` is an absolute filesystem path that backend adapters
+    can load (FSDB/KDB/Verilog).
+    """
+    if not files:
+        raise HTTPException(status_code=400, detail="No files provided")
+
+    uploaded: List[FileUploadItem] = []
+    for upload in files:
+        # FastAPI can provide None in edge cases; be defensive.
+        if not upload.filename:
+            continue
+
+        safe_name = _safe_filename(upload.filename)
+        dest_name = f"{uuid4().hex}_{safe_name}"
+        dest_path = (UPLOAD_DIR / dest_name).resolve()
+
+        size = await _save_upload_file(upload, dest_path)
+        uploaded.append(
+            FileUploadItem(
+                original_name=upload.filename,
+                path=str(dest_path),
+                size=size,
+            )
+        )
+
+    if not uploaded:
+        raise HTTPException(status_code=400, detail="No valid files provided")
+
+    return FileUploadResponse(files=uploaded)

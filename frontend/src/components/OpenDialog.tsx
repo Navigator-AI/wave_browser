@@ -8,6 +8,7 @@
 import { useState } from 'react';
 import { X, Database } from 'lucide-react';
 import { ServerFileBrowser } from './ServerFileBrowser';
+import { filesApi } from '../api';
 
 interface OpenDialogProps {
   isOpen: boolean;
@@ -18,6 +19,9 @@ interface OpenDialogProps {
 
 export function OpenDialog({ isOpen, onClose, onOpen, serverInfo }: OpenDialogProps) {
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -32,8 +36,29 @@ export function OpenDialog({ isOpen, onClose, onOpen, serverInfo }: OpenDialogPr
     }
   };
 
+  const handleUpload = async () => {
+    if (!uploadFile) return;
+    setIsUploading(true);
+    setUploadError(null);
+    try {
+      const res = await filesApi.upload([uploadFile]);
+      const first = res.files[0];
+      if (first?.path) {
+        setSelectedPath(first.path);
+      } else {
+        setUploadError('Upload succeeded but no file path returned.');
+      }
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : 'Upload failed');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const handleClose = () => {
     setSelectedPath(null);
+    setUploadFile(null);
+    setUploadError(null);
     onClose();
   };
 
@@ -68,6 +93,32 @@ export function OpenDialog({ isOpen, onClose, onOpen, serverInfo }: OpenDialogPr
         <div className="flex-1 min-h-0 p-4">
           <div className="h-[400px]">
             <ServerFileBrowser onSelect={handleSelect} />
+          </div>
+
+          {/* Upload option */}
+          <div className="mt-4 pt-3 border-t border-wave-border">
+            <div className="flex items-center justify-between gap-3">
+              <input
+                type="file"
+                accept=".fsdb,.vcd,.kdb"
+                className="text-xs"
+                disabled={isUploading}
+                onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
+              />
+              <button
+                type="button"
+                onClick={handleUpload}
+                disabled={!uploadFile || isUploading}
+                className="px-3 py-2 text-sm rounded bg-wave-accent text-wave-bg hover:bg-wave-accent/80 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isUploading ? 'Uploading...' : 'Upload'}
+              </button>
+            </div>
+            {uploadError && (
+              <div className="mt-2 text-xs text-red-400">
+                {uploadError}
+              </div>
+            )}
           </div>
         </div>
 

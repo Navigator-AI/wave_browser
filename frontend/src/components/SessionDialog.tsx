@@ -5,7 +5,7 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Database, X, AlertCircle } from 'lucide-react';
-import { sessionsApi, ApiError } from '../api';
+import { sessionsApi, ApiError, filesApi } from '../api';
 import { useWaveformStore } from '../store';
 import { sessionLogger } from '../utils/logging';
 
@@ -21,6 +21,11 @@ export function SessionDialog({ isOpen, onClose }: SessionDialogProps) {
   const [designDb, setDesignDb] = useState(DEFAULT_DESIGN_DB);
   const [waveDb, setWaveDb] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [designUploadFiles, setDesignUploadFiles] = useState<FileList | null>(null);
+  const [waveUploadFiles, setWaveUploadFiles] = useState<FileList | null>(null);
+  const [isUploadingDesign, setIsUploadingDesign] = useState(false);
+  const [isUploadingWave, setIsUploadingWave] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const { setCurrentSession } = useWaveformStore();
   const queryClient = useQueryClient();
 
@@ -53,11 +58,47 @@ export function SessionDialog({ isOpen, onClose }: SessionDialogProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     sessionLogger.info('Opening database', { designDb, waveDb: waveDb || undefined });
+    const v = (waveDb || '').toLowerCase().endsWith('.vcd') ? 'vcd' : 'verdi';
     createSession.mutate({
-      vendor: 'verdi',
+      vendor: v,
       wave_db: waveDb || undefined,
       design_db: designDb || undefined,
     });
+  };
+
+  const handleUploadDesign = async () => {
+    if (!designUploadFiles || designUploadFiles.length === 0) return;
+    setIsUploadingDesign(true);
+    setUploadError(null);
+    try {
+      const res = await filesApi.upload(designUploadFiles);
+      const paths = res.files.map(f => f.path).filter(Boolean);
+      if (paths.length > 0) {
+        // Backend verdi_adapter supports space-separated file lists for design_db.
+        setDesignDb(paths.join(' '));
+      }
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : 'Design upload failed');
+    } finally {
+      setIsUploadingDesign(false);
+    }
+  };
+
+  const handleUploadWave = async () => {
+    if (!waveUploadFiles || waveUploadFiles.length === 0) return;
+    setIsUploadingWave(true);
+    setUploadError(null);
+    try {
+      const res = await filesApi.upload(waveUploadFiles);
+      const first = res.files[0];
+      if (first?.path) {
+        setWaveDb(first.path);
+      }
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : 'Wave upload failed');
+    } finally {
+      setIsUploadingWave(false);
+    }
   };
 
   return (
@@ -88,6 +129,27 @@ export function SessionDialog({ isOpen, onClose }: SessionDialogProps) {
             <p className="mt-1 text-xs text-wave-text/50">
               Path to KDB, RTL directory, or space-separated list of Verilog files
             </p>
+
+            <div className="mt-3 pt-3 border-t border-wave-border/70">
+              <div className="flex items-center justify-between gap-3">
+                <input
+                  type="file"
+                  multiple
+                  accept=".v,.sv,.vh,.svh,.kdb,.f"
+                  className="text-xs"
+                  disabled={isUploadingDesign}
+                  onChange={(e) => setDesignUploadFiles(e.target.files)}
+                />
+                <button
+                  type="button"
+                  onClick={handleUploadDesign}
+                  disabled={!designUploadFiles || designUploadFiles.length === 0 || isUploadingDesign}
+                  className="px-3 py-2 text-sm rounded bg-wave-accent text-wave-bg hover:bg-wave-accent/80 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isUploadingDesign ? 'Uploading...' : 'Upload RTL/KDB'}
+                </button>
+              </div>
+            </div>
           </div>
 
           <button
@@ -110,6 +172,36 @@ export function SessionDialog({ isOpen, onClose }: SessionDialogProps) {
                 placeholder="/path/to/waves.fsdb"
                 className="w-full px-3 py-2 bg-wave-bg border border-wave-border rounded text-sm focus:outline-none focus:border-wave-accent font-mono text-xs"
               />
+
+              <div className="mt-3 pt-3 border-t border-wave-border/70">
+                <div className="flex items-center justify-between gap-3">
+                  <input
+                    type="file"
+                    multiple={false}
+                    accept=".fsdb"
+                    className="text-xs"
+                    disabled={isUploadingWave}
+                    onChange={(e) => setWaveUploadFiles(e.target.files)}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleUploadWave}
+                    disabled={!waveUploadFiles || waveUploadFiles.length === 0 || isUploadingWave}
+                    className="px-3 py-2 text-sm rounded bg-wave-accent text-wave-bg hover:bg-wave-accent/80 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isUploadingWave ? 'Uploading...' : 'Upload FSDB'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {uploadError && (
+            <div className="flex items-start gap-2 text-red-400 text-sm bg-red-400/10 p-3 rounded border border-red-400/20">
+              <div>
+                <div className="font-medium">Upload failed</div>
+                <div className="text-red-300/80 mt-1">{uploadError}</div>
+              </div>
             </div>
           )}
 
