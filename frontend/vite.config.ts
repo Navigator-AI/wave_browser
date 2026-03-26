@@ -6,6 +6,7 @@ export default defineConfig({
   base: process.env.GITHUB_PAGES ? '/wave_browser/' : '/',
   server: {
     port: 5317,
+    strictPort: true,
     host: '0.0.0.0',
     allowedHosts: ['waveformviewerweb.it.cyou', 'localhost'],
     proxy: {

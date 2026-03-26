@@ -55,6 +55,7 @@ example/sim/ucli.key
 # Backend runtime
 backend/logs/
 backend/npiLog/
+backend/uploads/
 
 # Launcher runtime (if used)
 launcher/venv/

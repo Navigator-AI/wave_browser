@@ -7,6 +7,8 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 LOG_DIR="$PROJECT_DIR/.run-logs"
+BACKEND_PORT="8802"
+FRONTEND_PORT="5317"
 
 echo "============================================"
 echo "  Wave Browser Development Launcher"
@@ -37,14 +39,19 @@ if ! itcyou auth status 2>/dev/null | grep -q "authenticated"; then
 fi
 
 # Start backend
-echo -e "${GREEN}Starting backend on port 8800...${NC}"
+echo -e "${GREEN}Starting backend on port ${BACKEND_PORT}...${NC}"
 cd "$PROJECT_DIR/backend"
 if [ ! -d "venv" ]; then
-    python3.11 -m venv venv
+    if command -v python3.11 >/dev/null 2>&1; then
+        python3.11 -m venv venv
+    else
+        python3 -m venv venv
+    fi
+    ./venv/bin/pip install -r requirements.txt
 fi
 mkdir -p "$LOG_DIR"
 source venv/bin/activate
-nohup python -m uvicorn app.main:app --host 0.0.0.0 --port 8800 > "$LOG_DIR/waveform-backend.log" 2>&1 &
+nohup python -m uvicorn app.main:app --host 0.0.0.0 --port "$BACKEND_PORT" > "$LOG_DIR/waveform-backend.log" 2>&1 &
 BACKEND_PID=$!
 echo "Backend started (PID: $BACKEND_PID)"
 
@@ -52,9 +59,12 @@ echo "Backend started (PID: $BACKEND_PID)"
 sleep 3
 
 # Start frontend
-echo -e "${GREEN}Starting frontend on port 5317...${NC}"
+echo -e "${GREEN}Starting frontend on port ${FRONTEND_PORT}...${NC}"
 cd "$PROJECT_DIR/frontend"
-nohup npm run dev > "$LOG_DIR/waveform-frontend.log" 2>&1 &
+if [ ! -d "node_modules" ]; then
+    npm install
+fi
+nohup npm run dev -- --host 0.0.0.0 --port "$FRONTEND_PORT" > "$LOG_DIR/waveform-frontend.log" 2>&1 &
 FRONTEND_PID=$!
 echo "Frontend started (PID: $FRONTEND_PID)"
 
@@ -65,11 +75,11 @@ sleep 5
 echo -e "${GREEN}Starting it.cyou tunnels...${NC}"
 
 # Backend tunnel
-nohup itcyou 8800 -s waveformviewer -t itc_afa1960e581c4ad9262ed8b902da6785 > "$LOG_DIR/itcyou-backend.log" 2>&1 &
+nohup itcyou "$BACKEND_PORT" -s waveformviewer -t itc_afa1960e581c4ad9262ed8b902da6785 > "$LOG_DIR/itcyou-backend.log" 2>&1 &
 echo "Backend tunnel: https://waveformviewer.it.cyou"
 
 # Frontend tunnel
-nohup itcyou 5317 -s waveformviewerweb -t itc_afa1960e581c4ad9262ed8b902da6785 > "$LOG_DIR/itcyou-frontend.log" 2>&1 &
+nohup itcyou "$FRONTEND_PORT" -s waveformviewerweb -t itc_afa1960e581c4ad9262ed8b902da6785 > "$LOG_DIR/itcyou-frontend.log" 2>&1 &
 echo "Frontend tunnel: https://waveformviewerweb.it.cyou"
 
 echo ""
