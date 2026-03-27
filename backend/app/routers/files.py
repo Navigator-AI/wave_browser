@@ -19,6 +19,8 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 # Safety: limit upload size (bytes)
 MAX_UPLOAD_BYTES = 200 * 1024 * 1024  # 200MB
+DESIGN_ALLOWED_EXTENSIONS = {'.v', '.sv', '.vh', '.svh', '.kdb', '.f'}
+WAVE_ALLOWED_EXTENSIONS = {'.vcd', '.fsdb'}
 
 
 class FileEntry(BaseModel):
@@ -239,24 +241,34 @@ async def _save_upload_file(upload: UploadFile, destination: Path) -> int:
     return size
 
 
-@router.post("/upload", response_model=FileUploadResponse)
-async def upload_files(files: List[UploadFile] = File(...)):
-    """
-    Upload one or more files to the backend machine.
+def _validate_extension(filename: str, allowed_extensions: set[str], kind_label: str) -> None:
+    ext = Path(filename).suffix.lower()
+    if ext not in allowed_extensions:
+        allowed = ', '.join(sorted(allowed_extensions))
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid {kind_label} file type for '{filename}'. Allowed: {allowed}",
+        )
 
-    The returned `path` is an absolute filesystem path that backend adapters
-    can load (FSDB/KDB/Verilog).
-    """
+
+async def _upload_with_validation(
+    files: List[UploadFile],
+    *,
+    allowed_extensions: set[str] | None = None,
+    kind_label: str = 'file',
+) -> FileUploadResponse:
     if not files:
         raise HTTPException(status_code=400, detail="No files provided")
 
     uploaded: List[FileUploadItem] = []
     for upload in files:
-        # FastAPI can provide None in edge cases; be defensive.
         if not upload.filename:
             continue
 
         safe_name = _safe_filename(upload.filename)
+        if allowed_extensions is not None:
+            _validate_extension(safe_name, allowed_extensions, kind_label)
+
         dest_name = f"{uuid4().hex}_{safe_name}"
         dest_path = (UPLOAD_DIR / dest_name).resolve()
 
@@ -273,3 +285,34 @@ async def upload_files(files: List[UploadFile] = File(...)):
         raise HTTPException(status_code=400, detail="No valid files provided")
 
     return FileUploadResponse(files=uploaded)
+
+
+@router.post("/upload", response_model=FileUploadResponse)
+async def upload_files(files: List[UploadFile] = File(...)):
+    """
+    Upload one or more files to the backend machine.
+
+    The returned `path` is an absolute filesystem path that backend adapters
+    can load (FSDB/KDB/Verilog).
+    """
+    return await _upload_with_validation(files)
+
+
+@router.post("/upload/design", response_model=FileUploadResponse)
+async def upload_design_files(files: List[UploadFile] = File(...)):
+    """Upload design database files (KDB/RTL/filelist)."""
+    return await _upload_with_validation(
+        files,
+        allowed_extensions=DESIGN_ALLOWED_EXTENSIONS,
+        kind_label='design',
+    )
+
+
+@router.post("/upload/wave", response_model=FileUploadResponse)
+async def upload_wave_files(files: List[UploadFile] = File(...)):
+    """Upload waveform database files (VCD/FSDB)."""
+    return await _upload_with_validation(
+        files,
+        allowed_extensions=WAVE_ALLOWED_EXTENSIONS,
+        kind_label='waveform',
+    )

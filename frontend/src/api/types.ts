@@ -19,6 +19,7 @@ export interface SessionInfo {
   vendor: string;
   wave_db?: string;
   design_db?: string;
+  design_files?: string[];
   time_unit: string;
   min_time: number;
   max_time: number;
@@ -136,5 +137,18 @@ export interface FileUploadItem {
 }
 
 export interface FileUploadResponse {
+  files: FileUploadItem[];
+}
+
+export interface UploadPathsResponse {
+  files: string[];
+}
+
+export interface SimulationRequest {
+  files: string[];
+}
+
+export interface SimulationResponse {
+  vcd_path: string;
   files: FileUploadItem[];
 }

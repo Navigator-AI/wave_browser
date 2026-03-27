@@ -24,6 +24,7 @@ async def list_sessions():
                 vendor=s.vendor,
                 wave_db=s.wave_db,
                 design_db=s.design_db,
+                design_files=s.design_files,
                 time_unit=s.info.time_unit,
                 min_time=s.info.min_time,
                 max_time=s.info.max_time,
@@ -55,6 +56,7 @@ async def create_session(request: SessionCreate):
                 vendor=session.vendor,
                 wave_db=session.wave_db,
                 design_db=session.design_db,
+                design_files=session.design_files,
                 time_unit=session.info.time_unit,
                 min_time=session.info.min_time,
                 max_time=session.info.max_time,
@@ -65,6 +67,20 @@ async def create_session(request: SessionCreate):
     except FileNotFoundError as e:
         logger.error(f"Database file not found: {e}")
         raise HTTPException(status_code=404, detail=str(e))
+    except RuntimeError as e:
+        message = str(e)
+        if "pynpi is not available" in message:
+            logger.error(f"NPI runtime missing for design database session: {message}")
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Design database sessions require Verdi NPI runtime. "
+                    "Set VERDI_HOME and PYTHONPATH to include "
+                    "$VERDI_HOME/share/NPI/python, or open a VCD/FSDB waveform session only."
+                ),
+            )
+        logger.error(f"Runtime failure while creating session: {message}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to open database: {message}")
     except Exception as e:
         logger.error(f"Failed to create session: {type(e).__name__}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to open database: {e}")
@@ -83,6 +99,7 @@ async def get_session(session_id: str):
             vendor=session.vendor,
             wave_db=session.wave_db,
             design_db=session.design_db,
+            design_files=session.design_files,
             time_unit=session.info.time_unit,
             min_time=session.info.min_time,
             max_time=session.info.max_time,

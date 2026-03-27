@@ -32,6 +32,13 @@ cleanup() {
 
 trap cleanup SIGINT SIGTERM
 
+# Ensure we are not reusing stale processes from a previous run.
+echo -e "${YELLOW}Stopping existing dev processes (if any)...${NC}"
+pkill -f "uvicorn app.main:app" || true
+pkill -f "vite" || true
+pkill -f "itcyou" || true
+sleep 1
+
 # Check if it.cyou is authenticated
 if ! itcyou auth status 2>/dev/null | grep -q "authenticated"; then
     echo "Authenticating with it.cyou..."

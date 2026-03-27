@@ -61,6 +61,7 @@ class SessionInfo(BaseModel):
     vendor: str
     wave_db: Optional[str]
     design_db: Optional[str]
+    design_files: List[str] = Field(default_factory=list, description="Uploaded/associated RTL files")
     time_unit: str
     min_time: int
     max_time: int

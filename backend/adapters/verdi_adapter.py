@@ -719,6 +719,10 @@ def get_adapter(vendor: str = "verdi") -> BaseAdapter:
     v = (vendor or "").lower()
     if v == "verdi":
         return VerdiAdapter()
+    if v == "rtl":
+        from .rtl_adapter import RtlAdapter
+
+        return RtlAdapter()
     if v == "vcd":
         # Import lazily to avoid loading parsing code unless requested.
         from .vcd_adapter import VcdAdapter

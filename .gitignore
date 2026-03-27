@@ -48,6 +48,9 @@ example/sim/vericomLog/
 example/sim/*.fsdb
 example/sim/*.vpd
 example/sim/simv*
+
+# Uploaded files
+uploads/
 example/sim/csrc/
 example/sim/AN.DB/
 example/sim/ucli.key

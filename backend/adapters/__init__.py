@@ -14,6 +14,7 @@ from .base import (
 )
 
 from .verdi_adapter import VerdiAdapter, get_adapter
+from .rtl_adapter import RtlAdapter
 
 __all__ = [
     "BaseAdapter",
@@ -25,5 +26,6 @@ __all__ = [
     "SignalDirection",
     "ScopeType",
     "VerdiAdapter",
+    "RtlAdapter",
     "get_adapter"
 ]

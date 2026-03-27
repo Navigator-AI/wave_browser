@@ -19,7 +19,7 @@ interface OpenDialogProps {
 
 export function OpenDialog({ isOpen, onClose, onOpen, serverInfo }: OpenDialogProps) {
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
-  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
@@ -37,19 +37,31 @@ export function OpenDialog({ isOpen, onClose, onOpen, serverInfo }: OpenDialogPr
   };
 
   const handleUpload = async () => {
-    if (!uploadFile) return;
+    if (files.length === 0) return;
     setIsUploading(true);
     setUploadError(null);
     try {
-      const res = await filesApi.upload([uploadFile]);
-      const first = res.files[0];
-      if (first?.path) {
-        setSelectedPath(first.path);
+      console.log('Uploading files:', files.map((f) => f.name));
+      const res = await filesApi.uploadPaths(files);
+      if (res.files.length > 0) {
+        setSelectedPath(res.files.join(' '));
       } else {
         setUploadError('Upload succeeded but no file path returned.');
       }
     } catch (err) {
-      setUploadError(err instanceof Error ? err.message : 'Upload failed');
+      const e = err as {
+        response?: { data?: { detail?: unknown } };
+        details?: { detail?: unknown };
+        message?: unknown;
+      };
+      console.error('Simulation error:', e?.response?.data || err);
+      const detail = e?.response?.data?.detail ?? e?.details?.detail;
+      const message = typeof detail === 'string' && detail.trim().length > 0
+        ? detail
+        : typeof e?.message === 'string' && e.message.trim().length > 0
+          ? e.message
+          : 'Upload failed';
+      setUploadError(message);
     } finally {
       setIsUploading(false);
     }
@@ -57,7 +69,7 @@ export function OpenDialog({ isOpen, onClose, onOpen, serverInfo }: OpenDialogPr
 
   const handleClose = () => {
     setSelectedPath(null);
-    setUploadFile(null);
+    setFiles([]);
     setUploadError(null);
     onClose();
   };
@@ -100,20 +112,28 @@ export function OpenDialog({ isOpen, onClose, onOpen, serverInfo }: OpenDialogPr
             <div className="flex items-center justify-between gap-3">
               <input
                 type="file"
-                accept=".fsdb,.vcd,.kdb"
+                multiple
+                accept=".v,.vcd,.fsdb"
                 className="text-xs"
                 disabled={isUploading}
-                onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
+                onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
               />
               <button
                 type="button"
                 onClick={handleUpload}
-                disabled={!uploadFile || isUploading}
+                disabled={files.length === 0 || isUploading}
                 className="px-3 py-2 text-sm rounded bg-wave-accent text-wave-bg hover:bg-wave-accent/80 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isUploading ? 'Uploading...' : 'Upload'}
               </button>
             </div>
+            {files.length > 0 && (
+              <ul className="mt-2 text-xs text-wave-text/80 space-y-1">
+                {files.map((file) => (
+                  <li key={`${file.name}-${file.size}`}>- {file.name}</li>
+                ))}
+              </ul>
+            )}
             {uploadError && (
               <div className="mt-2 text-xs text-red-400">
                 {uploadError}

@@ -16,7 +16,7 @@ import { OpenDialog } from './components/OpenDialog';
 import { LogPanel, LogEntry } from './components/LogPanel';
 import { CodePanel } from './components/CodePanel';
 import { useWaveformStore } from './store';
-import { setBackendUrl, sessionsApi } from './api';
+import { setBackendUrl, sessionsApi, filesApi } from './api';
 import { useUrlParams, buildConnectionUrl, clearConnectionUrl, useCodePanel } from './hooks';
 
 // Version for debugging - update when making changes
@@ -48,6 +48,26 @@ function AppContent() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [isSimulating, setIsSimulating] = useState(false);
+  const [simulateError, setSimulateError] = useState<string | null>(null);
+
+  const getSimulationErrorMessage = (error: unknown): string => {
+    const e = error as {
+      message?: unknown;
+      detail?: unknown;
+      details?: { detail?: unknown };
+      response?: { data?: { detail?: unknown } };
+    };
+
+    const detail = e?.response?.data?.detail ?? e?.details?.detail ?? e?.detail;
+    if (typeof detail === 'string' && detail.trim().length > 0) {
+      return detail;
+    }
+    if (typeof e?.message === 'string' && e.message.trim().length > 0) {
+      return e.message;
+    }
+    return 'Simulation failed';
+  };
 
   // Add a log entry
   const addLog = useCallback((level: LogEntry['level'], message: string, details?: string) => {
@@ -101,11 +121,26 @@ function AppContent() {
     addLog('info', `Opening database: ${fsdbPath}`);
 
     try {
-      const v = fsdbPath.toLowerCase().endsWith('.vcd') ? 'vcd' : 'verdi';
-      const response = await sessionsApi.create({
-        vendor: v,
-        wave_db: fsdbPath,
-      });
+      const pathLower = fsdbPath.toLowerCase().trim();
+      const isDesignPath =
+        pathLower.endsWith('.v') ||
+        pathLower.endsWith('.sv') ||
+        pathLower.endsWith('.vh') ||
+        pathLower.endsWith('.svh') ||
+        pathLower.endsWith('.f') ||
+        pathLower.endsWith('.kdb');
+
+      const response = await sessionsApi.create(
+        isDesignPath
+          ? {
+              vendor: 'verdi',
+              design_db: fsdbPath,
+            }
+          : {
+              vendor: pathLower.endsWith('.vcd') ? 'vcd' : 'verdi',
+              wave_db: fsdbPath,
+            }
+      );
       
       addLog('success', 'Session created successfully');
       addLog('info', `Time range: ${response.session.min_time} - ${response.session.max_time} ${response.session.time_unit}`);
@@ -170,6 +205,49 @@ function AppContent() {
     openDatabase(fsdbPath);
   };
 
+  const isRTL = Boolean(currentSession?.design_db?.toLowerCase().endsWith('.v'));
+
+  const handleRunSimulation = useCallback(async () => {
+    const designDb = currentSession?.design_db;
+    if (!designDb || !connection) {
+      return;
+    }
+
+    const designFiles = currentSession?.design_files && currentSession.design_files.length > 0
+      ? currentSession.design_files
+      : designDb.split(' ').filter(Boolean);
+
+    setIsSimulating(true);
+    setSimulateError(null);
+    addLog('info', `Running simulation for ${designFiles.join(', ')}`);
+
+    try {
+      const sim = await filesApi.simulateFromPaths({ files: designFiles });
+      const vcdPath = sim.vcd_path;
+      if (!vcdPath) {
+        throw new Error('Simulation succeeded but did not return vcd_path');
+      }
+
+      const response = await sessionsApi.create({
+        vendor: 'vcd',
+        wave_db: vcdPath,
+      });
+      setCurrentSession(response.session);
+      addLog('success', `Simulation complete. Loaded ${vcdPath}`);
+
+      const newUrl = buildConnectionUrl(connection.host, connection.port, vcdPath);
+      window.history.replaceState({}, '', newUrl);
+    } catch (error) {
+      const e = error as { response?: unknown };
+      console.error('Simulation error:', e?.response || error);
+      const message = getSimulationErrorMessage(error);
+      setSimulateError(message);
+      addLog('error', 'Simulation failed', message);
+    } finally {
+      setIsSimulating(false);
+    }
+  }, [addLog, connection, currentSession?.design_db, setCurrentSession]);
+
   return (
     <div className="h-screen flex flex-col bg-wave-bg text-wave-text">
       {/* Header */}
@@ -233,6 +311,17 @@ function AppContent() {
               Demo
             </button>
           )}
+          {connection && !connectionError && isRTL && (
+            <button
+              onClick={handleRunSimulation}
+              disabled={isSimulating}
+              className="flex items-center gap-2 px-3 py-1.5 text-sm bg-amber-600 text-amber-50 rounded hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Run simulation and replace current RTL session with generated VCD"
+            >
+              {isSimulating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+              {isSimulating ? 'Running...' : 'Run Simulation'}
+            </button>
+          )}
           {connection && !connectionError && (
             <button
               onClick={() => setShowOpenDialog(true)}
@@ -260,6 +349,12 @@ function AppContent() {
               </code>
             </div>
           </div>
+        </div>
+      )}
+
+      {simulateError && (
+        <div className="bg-red-500/10 border-b border-red-500/30 px-4 py-2 text-sm text-red-300">
+          Simulation failed: {simulateError}
         </div>
       )}
 

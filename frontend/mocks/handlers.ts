@@ -317,6 +317,151 @@ export const handlers = [
       line_count: file.content.split('\n').length,
     });
   }),
+
+  // Upload generic files
+  http.post('/api/files/upload', async ({ request }) => {
+    await delay(100);
+    const form = await request.formData();
+    const files = form.getAll('files').filter((f): f is File => f instanceof File);
+    if (files.length === 0) {
+      return HttpResponse.json({ detail: 'No files provided' }, { status: 400 });
+    }
+
+    return HttpResponse.json({
+      files: files.map((file, idx) => ({
+        original_name: file.name,
+        path: `/mock/uploads/${Date.now()}_${idx}_${file.name}`,
+        size: file.size,
+      })),
+    });
+  }),
+
+  // Upload generic files (simple path list API)
+  http.post('/api/upload', async ({ request }) => {
+    await delay(100);
+    const form = await request.formData();
+    const files = form.getAll('files').filter((f): f is File => f instanceof File);
+    if (files.length === 0) {
+      return HttpResponse.json({ detail: 'No files provided' }, { status: 400 });
+    }
+
+    return HttpResponse.json({
+      files: files.map((file, idx) => `/mock/uploads/${Date.now()}_${idx}_${file.name}`),
+    });
+  }),
+
+  // Upload design files (.v/.sv/.vh/.svh/.kdb/.f)
+  http.post('/api/files/upload/design', async ({ request }) => {
+    await delay(100);
+    const form = await request.formData();
+    const files = form.getAll('files').filter((f): f is File => f instanceof File);
+    if (files.length === 0) {
+      return HttpResponse.json({ detail: 'No files provided' }, { status: 400 });
+    }
+
+    const allowed = new Set(['.v', '.sv', '.vh', '.svh', '.kdb', '.f']);
+    for (const file of files) {
+      const dot = file.name.lastIndexOf('.');
+      const ext = dot >= 0 ? file.name.slice(dot).toLowerCase() : '';
+      if (!allowed.has(ext)) {
+        return HttpResponse.json(
+          { detail: `Invalid design file type for '${file.name}'. Allowed: ${Array.from(allowed).sort().join(', ')}` },
+          { status: 400 }
+        );
+      }
+    }
+
+    return HttpResponse.json({
+      files: files.map((file, idx) => ({
+        original_name: file.name,
+        path: `/mock/uploads/${Date.now()}_${idx}_${file.name}`,
+        size: file.size,
+      })),
+    });
+  }),
+
+  // Upload waveform files (.vcd/.fsdb)
+  http.post('/api/files/upload/wave', async ({ request }) => {
+    await delay(100);
+    const form = await request.formData();
+    const files = form.getAll('files').filter((f): f is File => f instanceof File);
+    if (files.length === 0) {
+      return HttpResponse.json({ detail: 'No files provided' }, { status: 400 });
+    }
+
+    const allowed = new Set(['.vcd', '.fsdb']);
+    for (const file of files) {
+      const dot = file.name.lastIndexOf('.');
+      const ext = dot >= 0 ? file.name.slice(dot).toLowerCase() : '';
+      if (!allowed.has(ext)) {
+        return HttpResponse.json(
+          { detail: `Invalid waveform file type for '${file.name}'. Allowed: ${Array.from(allowed).sort().join(', ')}` },
+          { status: 400 }
+        );
+      }
+    }
+
+    return HttpResponse.json({
+      files: files.map((file, idx) => ({
+        original_name: file.name,
+        path: `/mock/uploads/${Date.now()}_${idx}_${file.name}`,
+        size: file.size,
+      })),
+    });
+  }),
+
+  // Simulate Verilog files to generate VCD
+  http.post('/api/simulate', async ({ request }) => {
+    await delay(500); // Simulate compilation + simulation time
+    const contentType = (request.headers.get('content-type') || '').toLowerCase();
+    const allowed = new Set(['.v', '.sv', '.vh', '.svh']);
+
+    if (contentType.includes('application/json')) {
+      const body = await request.json() as { files?: string[] };
+      const paths = body.files || [];
+      if (paths.length === 0) {
+        return HttpResponse.json({ detail: 'No files provided' }, { status: 400 });
+      }
+
+      for (const p of paths) {
+        const dot = p.lastIndexOf('.');
+        const ext = dot >= 0 ? p.slice(dot).toLowerCase() : '';
+        if (!allowed.has(ext)) {
+          return HttpResponse.json(
+            { detail: `Invalid Verilog file type for '${p}'. Allowed: ${Array.from(allowed).sort().join(', ')}` },
+            { status: 400 }
+          );
+        }
+      }
+    } else {
+      const form = await request.formData();
+      const files = form.getAll('files').filter((f): f is File => f instanceof File);
+      if (files.length === 0) {
+        return HttpResponse.json({ detail: 'No files provided' }, { status: 400 });
+      }
+
+      for (const file of files) {
+        const dot = file.name.lastIndexOf('.');
+        const ext = dot >= 0 ? file.name.slice(dot).toLowerCase() : '';
+        if (!allowed.has(ext)) {
+          return HttpResponse.json(
+            { detail: `Invalid Verilog file type for '${file.name}'. Allowed: ${Array.from(allowed).sort().join(', ')}` },
+            { status: 400 }
+          );
+        }
+      }
+    }
+
+    const vcdPath = `/mock/uploads/${Date.now()}_simulated.vcd`;
+    return HttpResponse.json({
+      vcd_path: vcdPath,
+      files: [{
+        original_name: `${Date.now()}_simulated.vcd`,
+        path: vcdPath,
+        size: 1024,
+      }],
+    });
+  }),
 ];
 
 // Reset sessions to initial state (useful for tests)

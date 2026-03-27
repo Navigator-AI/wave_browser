@@ -21,6 +21,9 @@ import type {
   FileListResponse,
   FileContentResponse,
   FileUploadResponse,
+  UploadPathsResponse,
+  SimulationRequest,
+  SimulationResponse,
 } from './types';
 
 import { apiLogger } from '../utils/logging';
@@ -194,6 +197,104 @@ export const filesApi = {
       throw new ApiError(0, `Network error: ${message}`);
     }
   },
+
+  uploadPaths: async (files: FileList | File[]) => {
+    const fileArr = Array.from(files);
+    const formData = new FormData();
+    for (const f of fileArr) {
+      formData.append('files', f);
+    }
+
+    const url = `${currentBackendUrl}/api/upload`;
+    try {
+      const response = await fetch(url, { method: 'POST', body: formData });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
+        const errorMessage = error.detail || 'Upload failed';
+        throw new ApiError(response.status, errorMessage, error);
+      }
+      return (await response.json()) as UploadPathsResponse;
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      const message = error instanceof Error ? error.message : 'Network error';
+      throw new ApiError(0, `Network error: ${message}`);
+    }
+  },
+
+  uploadDesign: async (files: FileList | File[]) => {
+    const fileArr = Array.from(files);
+    const formData = new FormData();
+    for (const f of fileArr) {
+      formData.append('files', f);
+    }
+
+    const url = `${currentBackendUrl}/api/files/upload/design`;
+    try {
+      const response = await fetch(url, { method: 'POST', body: formData });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
+        const errorMessage = error.detail || 'Upload failed';
+        throw new ApiError(response.status, errorMessage, error);
+      }
+      return (await response.json()) as FileUploadResponse;
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      const message = error instanceof Error ? error.message : 'Network error';
+      throw new ApiError(0, `Network error: ${message}`);
+    }
+  },
+
+  uploadWave: async (files: FileList | File[]) => {
+    const fileArr = Array.from(files);
+    const formData = new FormData();
+    for (const f of fileArr) {
+      formData.append('files', f);
+    }
+
+    const url = `${currentBackendUrl}/api/files/upload/wave`;
+    try {
+      const response = await fetch(url, { method: 'POST', body: formData });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
+        const errorMessage = error.detail || 'Upload failed';
+        throw new ApiError(response.status, errorMessage, error);
+      }
+      return (await response.json()) as FileUploadResponse;
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      const message = error instanceof Error ? error.message : 'Network error';
+      throw new ApiError(0, `Network error: ${message}`);
+    }
+  },
+
+  simulate: async (files: FileList | File[]) => {
+    const fileArr = Array.from(files);
+    const formData = new FormData();
+    for (const f of fileArr) {
+      formData.append('files', f);
+    }
+
+    const url = `${currentBackendUrl}/api/simulate`;
+    try {
+      const response = await fetch(url, { method: 'POST', body: formData });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
+        const errorMessage = error.detail || 'Simulation failed';
+        throw new ApiError(response.status, errorMessage, error);
+      }
+      return (await response.json()) as FileUploadResponse;
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      const message = error instanceof Error ? error.message : 'Network error';
+      throw new ApiError(0, `Network error: ${message}`);
+    }
+  },
+
+  simulateFromPaths: (data: SimulationRequest) =>
+    request<SimulationResponse>('/simulate', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
 };
 
 export { ApiError };

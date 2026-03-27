@@ -34,6 +34,9 @@ export function WaveformViewer() {
     signalGroups,
   } = useWaveformStore();
 
+  const isRtlDesignOnly =
+    (currentSession?.vendor || '').toLowerCase() === 'rtl' && !currentSession?.wave_db;
+
   // Calculate canvas height based on signals and groups
   const calculateCanvasHeight = useCallback(() => {
     const RULER_HEIGHT = 24;
@@ -320,6 +323,11 @@ export function WaveformViewer() {
 
       {/* Waveform display */}
       <div className="flex-1 overflow-auto">
+        {isRtlDesignOnly && (
+          <div className="mx-3 mt-3 rounded border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-xs text-yellow-200">
+            RTL design loaded without waveform database. Hierarchy and signals are available, but time/value traces require a VCD/FSDB file.
+          </div>
+        )}
         {displayedSignals.length === 0 ? (
           <div className="h-full flex items-center justify-center text-wave-text/50">
             Add signals from the hierarchy panel

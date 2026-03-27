@@ -25,7 +25,9 @@ export function SessionDialog({ isOpen, onClose }: SessionDialogProps) {
   const [waveUploadFiles, setWaveUploadFiles] = useState<FileList | null>(null);
   const [isUploadingDesign, setIsUploadingDesign] = useState(false);
   const [isUploadingWave, setIsUploadingWave] = useState(false);
+  const [isSimulating, setIsSimulating] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [showSimulateOption, setShowSimulateOption] = useState(false);
   const { setCurrentSession } = useWaveformStore();
   const queryClient = useQueryClient();
 
@@ -55,10 +57,30 @@ export function SessionDialog({ isOpen, onClose }: SessionDialogProps) {
     return (error as Error).message || 'Unknown error occurred';
   };
 
+  const getSimulationErrorMessage = (error: unknown): string => {
+    const e = error as {
+      message?: unknown;
+      detail?: unknown;
+      details?: { detail?: unknown };
+      response?: { data?: { detail?: unknown } };
+    };
+
+    const detail = e?.response?.data?.detail ?? e?.details?.detail ?? e?.detail;
+    if (typeof detail === 'string' && detail.trim().length > 0) {
+      return detail;
+    }
+    if (typeof e?.message === 'string' && e.message.trim().length > 0) {
+      return e.message;
+    }
+    return 'Simulation failed';
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     sessionLogger.info('Opening database', { designDb, waveDb: waveDb || undefined });
-    const v = (waveDb || '').toLowerCase().endsWith('.vcd') ? 'vcd' : 'verdi';
+    const hasDesignDb = Boolean(designDb.trim());
+    const wavePath = (waveDb || '').trim().toLowerCase();
+    const v = !hasDesignDb && wavePath.endsWith('.vcd') ? 'vcd' : 'verdi';
     createSession.mutate({
       vendor: v,
       wave_db: waveDb || undefined,
@@ -70,10 +92,23 @@ export function SessionDialog({ isOpen, onClose }: SessionDialogProps) {
     if (!designUploadFiles || designUploadFiles.length === 0) return;
     setIsUploadingDesign(true);
     setUploadError(null);
+    setShowSimulateOption(false);
     try {
-      const res = await filesApi.upload(designUploadFiles);
+      const res = await filesApi.uploadDesign(designUploadFiles);
       const paths = res.files.map(f => f.path).filter(Boolean);
       if (paths.length > 0) {
+        // Check if any files are Verilog source files
+        const hasVerilogSource = Array.from(designUploadFiles).some(f => 
+          f.name.toLowerCase().endsWith('.v') || 
+          f.name.toLowerCase().endsWith('.sv') ||
+          f.name.toLowerCase().endsWith('.vh') || 
+          f.name.toLowerCase().endsWith('.svh')
+        );
+        
+        if (hasVerilogSource) {
+          setShowSimulateOption(true);
+        }
+        
         // Backend verdi_adapter supports space-separated file lists for design_db.
         setDesignDb(paths.join(' '));
       }
@@ -84,12 +119,43 @@ export function SessionDialog({ isOpen, onClose }: SessionDialogProps) {
     }
   };
 
+  const handleRunSimulation = async () => {
+    if (!designUploadFiles || designUploadFiles.length === 0) return;
+    setIsSimulating(true);
+    setUploadError(null);
+    try {
+      sessionLogger.info('Running Verilog simulation', { files: Array.from(designUploadFiles).map(f => f.name) });
+      const res = await filesApi.simulate(designUploadFiles);
+      const vcdPath = res.files[0]?.path;
+      if (vcdPath) {
+        sessionLogger.info('Simulation completed, opening VCD', { vcdPath });
+        setWaveDb(vcdPath);
+        setDesignDb(''); // Clear design DB since we now have waveform
+        setShowSimulateOption(false);
+        createSession.mutate({
+          vendor: 'vcd',
+          wave_db: vcdPath,
+        });
+      } else {
+        setUploadError('Simulation completed but no VCD path returned');
+      }
+    } catch (err) {
+      const e = err as { response?: unknown };
+      console.error('Simulation error:', e?.response || err);
+      const errorMsg = getSimulationErrorMessage(err);
+      setUploadError(errorMsg);
+      sessionLogger.error('Simulation failed', errorMsg);
+    } finally {
+      setIsSimulating(false);
+    }
+  };
+
   const handleUploadWave = async () => {
     if (!waveUploadFiles || waveUploadFiles.length === 0) return;
     setIsUploadingWave(true);
     setUploadError(null);
     try {
-      const res = await filesApi.upload(waveUploadFiles);
+      const res = await filesApi.uploadWave(waveUploadFiles);
       const first = res.files[0];
       if (first?.path) {
         setWaveDb(first.path);
@@ -137,17 +203,30 @@ export function SessionDialog({ isOpen, onClose }: SessionDialogProps) {
                   multiple
                   accept=".v,.sv,.vh,.svh,.kdb,.f"
                   className="text-xs"
-                  disabled={isUploadingDesign}
+                  disabled={isUploadingDesign || isSimulating}
                   onChange={(e) => setDesignUploadFiles(e.target.files)}
                 />
-                <button
-                  type="button"
-                  onClick={handleUploadDesign}
-                  disabled={!designUploadFiles || designUploadFiles.length === 0 || isUploadingDesign}
-                  className="px-3 py-2 text-sm rounded bg-wave-accent text-wave-bg hover:bg-wave-accent/80 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isUploadingDesign ? 'Uploading...' : 'Upload RTL/KDB'}
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleUploadDesign}
+                    disabled={!designUploadFiles || designUploadFiles.length === 0 || isUploadingDesign || isSimulating}
+                    className="px-3 py-2 text-sm rounded bg-wave-accent text-wave-bg hover:bg-wave-accent/80 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isUploadingDesign ? 'Uploading...' : 'Upload RTL/KDB'}
+                  </button>
+                  {showSimulateOption && (
+                    <button
+                      type="button"
+                      onClick={handleRunSimulation}
+                      disabled={isSimulating || isUploadingDesign}
+                      className="px-3 py-2 text-sm rounded bg-amber-600 text-amber-50 hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Generate VCD waveforms by running Verilog simulation"
+                    >
+                      {isSimulating ? 'Simulating...' : '▶ Simulate'}
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -163,13 +242,13 @@ export function SessionDialog({ isOpen, onClose }: SessionDialogProps) {
           {showAdvanced && (
             <div>
               <label className="block text-sm font-medium mb-1">
-                Waveform Database (FSDB) - Optional
+                Waveform Database (FSDB/VCD) - Optional
               </label>
               <input
                 type="text"
                 value={waveDb}
                 onChange={(e) => setWaveDb(e.target.value)}
-                placeholder="/path/to/waves.fsdb"
+                placeholder="/path/to/waves.fsdb or /path/to/waves.vcd"
                 className="w-full px-3 py-2 bg-wave-bg border border-wave-border rounded text-sm focus:outline-none focus:border-wave-accent font-mono text-xs"
               />
 
@@ -178,7 +257,7 @@ export function SessionDialog({ isOpen, onClose }: SessionDialogProps) {
                   <input
                     type="file"
                     multiple={false}
-                    accept=".fsdb"
+                    accept=".fsdb,.vcd"
                     className="text-xs"
                     disabled={isUploadingWave}
                     onChange={(e) => setWaveUploadFiles(e.target.files)}
@@ -189,7 +268,7 @@ export function SessionDialog({ isOpen, onClose }: SessionDialogProps) {
                     disabled={!waveUploadFiles || waveUploadFiles.length === 0 || isUploadingWave}
                     className="px-3 py-2 text-sm rounded bg-wave-accent text-wave-bg hover:bg-wave-accent/80 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {isUploadingWave ? 'Uploading...' : 'Upload FSDB'}
+                    {isUploadingWave ? 'Uploading...' : 'Upload FSDB/VCD'}
                   </button>
                 </div>
               </div>

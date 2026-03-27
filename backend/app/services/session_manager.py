@@ -2,9 +2,10 @@
 Session management service.
 """
 
+from pathlib import Path
 import uuid
 from datetime import datetime
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 from dataclasses import dataclass
 
 from adapters import BaseAdapter, get_adapter, DatabaseInfo
@@ -17,6 +18,7 @@ class Session:
     vendor: str
     wave_db: Optional[str]
     design_db: Optional[str]
+    design_files: List[str]
     adapter: BaseAdapter
     info: DatabaseInfo
     created_at: datetime
@@ -28,6 +30,44 @@ class SessionManager:
     def __init__(self, max_sessions: int = 10):
         self._sessions: Dict[str, Session] = {}
         self._max_sessions = max_sessions
+
+    def _looks_like_rtl_input(self, design_db: Optional[str]) -> bool:
+        if not design_db:
+            return False
+
+        rtl_exts = {".v", ".sv", ".vh", ".svh", ".f"}
+        for token in design_db.split():
+            p = Path(token)
+            if p.is_dir():
+                return True
+            if p.suffix.lower() in rtl_exts:
+                return True
+        return False
+
+    def _should_fallback_to_rtl(
+        self,
+        vendor: str,
+        wave_db: Optional[str],
+        design_db: Optional[str],
+        exc: Exception,
+    ) -> bool:
+        if (vendor or "").lower() != "verdi":
+            return False
+        if wave_db:
+            return False
+        if not self._looks_like_rtl_input(design_db):
+            return False
+        return "pynpi is not available" in str(exc)
+
+    def _extract_design_files(self, design_db: Optional[str]) -> List[str]:
+        if not design_db:
+            return []
+        files: List[str] = []
+        for token in design_db.split():
+            p = Path(token)
+            if p.suffix.lower() in {".v", ".sv", ".vh", ".svh", ".f"}:
+                files.append(token)
+        return files
     
     def create_session(self, vendor: str, wave_db: Optional[str] = None, 
                        design_db: Optional[str] = None) -> Session:
@@ -38,15 +78,25 @@ class SessionManager:
             self.close_session(oldest.id)
         
         session_id = str(uuid.uuid4())
-        adapter = get_adapter(vendor)
-        adapter.open(wave_db, design_db)
+        resolved_vendor = vendor
+        try:
+            adapter = get_adapter(vendor)
+            adapter.open(wave_db, design_db)
+        except RuntimeError as exc:
+            if self._should_fallback_to_rtl(vendor, wave_db, design_db, exc):
+                resolved_vendor = "rtl"
+                adapter = get_adapter("rtl")
+                adapter.open(None, design_db)
+            else:
+                raise
         info = adapter.get_info()
         
         session = Session(
             id=session_id,
-            vendor=vendor,
+            vendor=resolved_vendor,
             wave_db=wave_db,
             design_db=design_db,
+            design_files=self._extract_design_files(design_db),
             adapter=adapter,
             info=info,
             created_at=datetime.utcnow()
