@@ -1,14 +1,18 @@
 [Unit]
-Description=Wave Browser Backend - it.cyou tunnel
+Description=Wave Browser Backend API
 After=network.target
+Wants=network-online.target
 
 [Service]
 Type=simple
-User=root
-WorkingDirectory=/projects/yaswanth/wave_browser/backend
-ExecStart=/usr/local/bin/itcyou 8800 -s waveformviewer -t itc_afa1960e581c4ad9262ed8b902da6785
+User=wavebrowser
+WorkingDirectory=/projects/sujayak/wave_browser/backend
+Environment="PATH=/projects/sujayak/wave_browser/backend/venv/bin"
+ExecStart=/projects/sujayak/wave_browser/backend/venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8802
 Restart=on-failure
 RestartSec=10
+StandardOutput=journal
+StandardError=journal
 
 [Install]
 WantedBy=multi-user.target

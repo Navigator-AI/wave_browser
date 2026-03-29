@@ -87,8 +87,8 @@ function AppContent() {
   }, []);
 
   // Connect to server
-  const connectToServer = useCallback(async (host: string, port: number) => {
-    const backendUrl = `http://${host}:${port}`;
+  const connectToServer = useCallback(async (host: string, port: number, backendOverride?: string) => {
+    const backendUrl = backendOverride || `http://${host}:${port}`;
     setBackendUrl(backendUrl);
     setConnection({ host, port, backendUrl });
     setConnectionError(null);
@@ -164,7 +164,7 @@ function AppContent() {
   useEffect(() => {
     const initFromUrl = async () => {
       if (urlParams.host && urlParams.port) {
-        const connected = await connectToServer(urlParams.host, urlParams.port);
+        const connected = await connectToServer(urlParams.host, urlParams.port, urlParams.backendUrl || undefined);
         
         if (connected && urlParams.fsdb) {
           await openDatabase(urlParams.fsdb);
@@ -191,7 +191,7 @@ function AppContent() {
   // Handle retry connection
   const handleRetryConnection = () => {
     if (urlParams.host && urlParams.port) {
-      connectToServer(urlParams.host, urlParams.port).then(connected => {
+      connectToServer(urlParams.host, urlParams.port, urlParams.backendUrl || undefined).then(connected => {
         if (connected && urlParams.fsdb) {
           openDatabase(urlParams.fsdb);
         }

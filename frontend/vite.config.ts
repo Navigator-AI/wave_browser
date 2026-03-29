@@ -8,7 +8,7 @@ export default defineConfig({
     port: 5317,
     strictPort: true,
     host: '0.0.0.0',
-    allowedHosts: ['waveformviewerweb.it.cyou', 'localhost'],
+    allowedHosts: ['localhost', '.it.cyou'],
     proxy: {
       '/api': {
         target: 'http://127.0.0.1:8800',

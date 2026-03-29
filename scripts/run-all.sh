@@ -83,11 +83,26 @@ echo -e "${GREEN}Starting it.cyou tunnels...${NC}"
 
 # Backend tunnel
 nohup itcyou "$BACKEND_PORT" -s waveformviewer -t itc_afa1960e581c4ad9262ed8b902da6785 > "$LOG_DIR/itcyou-backend.log" 2>&1 &
-echo "Backend tunnel: https://waveformviewer.it.cyou"
 
 # Frontend tunnel
 nohup itcyou "$FRONTEND_PORT" -s waveformviewerweb -t itc_afa1960e581c4ad9262ed8b902da6785 > "$LOG_DIR/itcyou-frontend.log" 2>&1 &
-echo "Frontend tunnel: https://waveformviewerweb.it.cyou"
+
+# Give tunnels a moment to initialize and emit their assigned URLs
+sleep 2
+
+BACKEND_TUNNEL_URL="$(grep -m1 'Tunnel URL' "$LOG_DIR/itcyou-backend.log" | sed -E 's/.*Tunnel URL[[:space:]]+//')"
+FRONTEND_TUNNEL_URL="$(grep -m1 'Tunnel URL' "$LOG_DIR/itcyou-frontend.log" | sed -E 's/.*Tunnel URL[[:space:]]+//')"
+
+# Fallback to expected names if parsing failed
+if [ -z "$BACKEND_TUNNEL_URL" ]; then
+    BACKEND_TUNNEL_URL="https://waveformviewer.it.cyou"
+fi
+if [ -z "$FRONTEND_TUNNEL_URL" ]; then
+    FRONTEND_TUNNEL_URL="https://waveformviewerweb.it.cyou"
+fi
+
+echo "Backend tunnel: $BACKEND_TUNNEL_URL"
+echo "Frontend tunnel: $FRONTEND_TUNNEL_URL"
 
 echo ""
 echo "============================================"
@@ -95,7 +110,7 @@ echo "  All services started!"
 echo "============================================"
 echo ""
 echo "Access your app at:"
-echo "  https://waveformviewerweb.it.cyou?server=waveformviewer.it.cyou"
+echo "  ${FRONTEND_TUNNEL_URL}?server=${BACKEND_TUNNEL_URL}"
 echo ""
 echo "Logs:"
 echo "  Backend:   tail -f $LOG_DIR/waveform-backend.log"

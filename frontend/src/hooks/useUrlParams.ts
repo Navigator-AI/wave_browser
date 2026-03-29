@@ -25,12 +25,27 @@ export function useUrlParams(): UrlConnectionParams {
     let backendUrl: string | null = null;
     
     if (server) {
-      const parts = server.split(':');
-      host = parts[0] || null;
-      port = parts[1] ? parseInt(parts[1], 10) : 8000; // Default port 8000
-      
-      if (host) {
-        backendUrl = `http://${host}:${port}`;
+      // Support full URL format: ?server=https://example.com
+      if (server.startsWith('http://') || server.startsWith('https://')) {
+        try {
+          const parsed = new URL(server);
+          host = parsed.hostname;
+          port = parsed.port ? parseInt(parsed.port, 10) : (parsed.protocol === 'https:' ? 443 : 80);
+          backendUrl = parsed.origin;
+        } catch {
+          host = null;
+          port = null;
+          backendUrl = null;
+        }
+      } else {
+        // Legacy format: ?server=host:port or ?server=host
+        const parts = server.split(':');
+        host = parts[0] || null;
+        port = parts[1] ? parseInt(parts[1], 10) : 8000; // Default port 8000
+
+        if (host) {
+          backendUrl = `http://${host}:${port}`;
+        }
       }
     }
     

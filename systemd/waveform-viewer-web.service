@@ -1,14 +1,17 @@
 [Unit]
-Description=Wave Browser Frontend - it.cyou tunnel
-After=network.target
+Description=Wave Browser Frontend Web Server
+After=network.target waveform-viewer-api.service
+Wants=network-online.target
 
 [Service]
 Type=simple
-User=root
-WorkingDirectory=/projects/yaswanth/wave_browser/frontend
-ExecStart=/usr/local/bin/itcyou 5317 -s waveformviewerweb -t itc_afa1960e581c4ad9262ed8b902da6785
+User=wavebrowser
+WorkingDirectory=/projects/sujayak/wave_browser/frontend/dist
+ExecStart=/usr/bin/python3 -m http.server 5317
 Restart=on-failure
 RestartSec=10
+StandardOutput=journal
+StandardError=journal
 
 [Install]
 WantedBy=multi-user.target
