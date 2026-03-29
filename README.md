@@ -54,7 +54,7 @@ Open:
 http://127.0.0.1:5317?server=127.0.0.1:8802
 ```
 
-## Public Access (Mobile/Remote)
+## Public Access (Remote)
 
 Use the launcher script that starts backend, frontend, and `it.cyou` tunnels:
 
